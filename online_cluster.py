@@ -129,4 +129,4 @@ class OLCB():
             m=len( list( nx.connected_component_subgraphs(V) ) )
             list_m.append(m)
 
-        return(list_m,list_CB,list_omega,list_payoff,regret_cum)
+        return(list_m,list_CB,list_omega,list_payoff,regret_cum,V)
