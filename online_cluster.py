@@ -6,13 +6,14 @@ from scipy.spatial.distance import euclidean
 import networkx as nx
 
 class OLCB():
-    def __init__(self,T,n_user,D,c):
+    def __init__(self,T,n_user,D,c,graph_density):
         self.T=T
         self.n_user=n_user
         self.D=D
         self.c=c
-        self.V= nx.dense_gnm_random_graph(n_user,3*int(np.log(n_user)*n_user))
-        self.m=len( list( nx.connected_component_subgraphs(self.V) ) )  
+        self.V= nx.dense_gnm_random_graph(n_user,graph_density)
+        self.m=len( list( nx.connected_component_subgraphs(self.V) ) )
+        self.U=self.sphere_unif(n_user,D)
         self.list_i=[]
         self.list_m=[]
         self.list_C=[]
@@ -30,6 +31,13 @@ class OLCB():
             denom=denom+i**(-z)
         return( n*(j**(-z))/denom )
 
+    def payoff_cum(self,list_payoff):
+        payoff_mean_cum=np.zeros(self.T)
+        payoff_vec=np.array(list_payoff)
+        for i in range(1,self.T):
+            payoff_mean_cum[i]=np.mean(payoff_vec[:i])
+        return payoff_mean_cum
+    
     def CLUB(self,sigma,alpha,alpha2,z):
         sphere_unif=self.sphere_unif
         card_clust=self.card_clust
@@ -40,10 +48,12 @@ class OLCB():
         c=self.c
         list_i=self.list_i
         list_m=self.list_m
-        V=self.V
-        U=sphere_unif(n_user,D)
+        V=self.V.copy()
+        U=self.U.copy()
         regret_cum=np.zeros(T)
+        regret_cum_random=np.zeros(T)
         list_payoff=[]
+        list_random_payoff=[]
         list_CB=np.zeros(T)
         list_omega=np.zeros(T)
         d_M=dict()
@@ -51,8 +61,6 @@ class OLCB():
         for i in range(n_user):
             d_M['M%d' % i]=np.identity(D)
             d_b['b%d' % i]=np.zeros(D)
-        #matrice U des vrais u_j
-        self.U=sphere_unif(n_user,D)
         for cont in range(T):
             list_C.append(sphere_unif(D,c))
         for t in range(T):
@@ -81,12 +89,20 @@ class OLCB():
                 vect_k[k]=CB+np.dot(omega_bar.T,C[:,k])
             k_t=[v for v in range(c) if vect_k[v]==np.max(vect_k)][0]
             #calcule payoffs avec u_j
-            a_t=np.dot(U[i,:],C[:,k_t])+npr.uniform(-sigma,sigma,size=1)
+            epsilon = npr.uniform(-sigma,sigma,size=1)
+            a_t=np.dot(U[i,:],C[:,k_t]) + epsilon
+            #random payoff: performance baseline qu'il faut battre
+            random_payoff=np.dot(U[i,:],C[:,int(npr.uniform(0,c))]) + epsilon
+            list_random_payoff.append(random_payoff)
             other_payoff= list([ np.dot(U[i,:],C[:,n]) for n in range(c) ])
             if t>0:
-                regret_cum[t]=regret_cum[t-1]+a_t-[np.dot(U[i,:],C[:,n]) for n in range(c) if np.dot(U[i,:],C[:,n])==max(other_payoff)][0]
+                best_payoff = [np.dot(U[i,:],C[:,n]) for n in range(c) if np.dot(U[i,:],C[:,n])==max(other_payoff)][0]
+                regret_cum[t]=regret_cum[t-1]+a_t - best_payoff
+                regret_cum_random[t] = regret_cum_random[t-1] + random_payoff - best_payoff
             else:
-                regret_cum[t]=a_t-[np.dot(U[i,:],C[:,n]) for n in range(c) if np.dot(U[i,:],C[:,n])==max(other_payoff)][0]
+                best_payoff=[np.dot(U[i,:],C[:,n]) for n in range(c) if np.dot(U[i,:],C[:,n])==max(other_payoff)][0]
+                regret_cum[t]=a_t-best_payoff
+                regret_cum_random[t]=random_payoff - best_payoff
             list_payoff.append(a_t)
             # On update les poids
             d_M['M'+str(int(i))]=d_M['M'+str(int(i))]+np.dot(C[:,k_t],C[:,k_t].T)
@@ -123,10 +139,11 @@ class OLCB():
                         list_card=[ card_clust(z,n_user_sub,m_copy,j) for j in np.arange(1,m_copy+1) ]
                         list_card_V=[ len(c) for c in list(nx.connected_component_subgraphs(V_copy)) ]            
                         diff_card=abs( np.array(sorted(list_card))-np.array(sorted(list_card_V)) )
-                        if( np.array_equal(diff_card,np.zeros(m_copy)) | np.array_equal(diff_card,np.ones(m_copy) ) | np.array_equal(diff_card,2*np.ones(m_copy)) | np.array_equal(diff_card,3*np.ones(m_copy))):
+                        if( np.array_equal(diff_card,np.zeros(m_copy)) | np.array_equal(diff_card,np.ones(m_copy) ) | np.array_equal(diff_card,2*np.ones(m_copy)) | np.array_equal(diff_card,3*np.ones(m_copy))
+                          | np.array_equal(diff_card,4*np.ones(m_copy)) ):
                             V.remove_edge(i,l)
             
             m=len( list( nx.connected_component_subgraphs(V) ) )
             list_m.append(m)
 
-        return(list_m,list_CB,list_omega,list_payoff,regret_cum,V)
+        return(list_m,list_CB,list_omega,list_payoff,list_random_payoff,regret_cum,regret_cum_random,V)
