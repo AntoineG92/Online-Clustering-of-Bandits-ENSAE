@@ -38,7 +38,7 @@ class OLCB():
             payoff_mean_cum[i]=np.mean(payoff_vec[:i])
         return payoff_mean_cum
     
-    def CLUB(self,sigma,alpha,alpha2,z):
+    def CLUB(self,sigma,alpha,alpha2,z,method):
         sphere_unif=self.sphere_unif
         card_clust=self.card_clust
         n_user=self.n_user
@@ -61,14 +61,18 @@ class OLCB():
         for i in range(n_user):
             d_M['M%d' % i]=np.identity(D)
             d_b['b%d' % i]=np.zeros(D)
-        for cont in range(T):
-            list_C.append(sphere_unif(D,c))
+        if method == "random design":
+            for cont in range(T):
+                list_C.append(sphere_unif(D,c))
+        if method == "fixed design":
+            for cont in range(int(n_user/(2*c))):
+                list_C.append(sphere_unif(D,c))
         for t in range(T):
             #choisir aléatoirement un user i
             i=int(npr.uniform(0,n_user))
             list_i.append(i)
             #reçoit un vecteur contexte associé au user i
-            C = list_C[ int( npr.uniform(0,T) ) ] 
+            C = list_C[ int( npr.uniform(0,len(list_C)) ) ] 
             #On genère omega
             omega=np.zeros([n_user,D])
             omega[i,:]=np.dot(np.linalg.inv(d_M['M'+str(int(i))]),d_b['b'+str(int(i))])
@@ -109,7 +113,7 @@ class OLCB():
             d_b['b'+str(int(i))]=d_b['b'+str(int(i))]+a_t*C[:,k_t]
             # On update les clusters
             T_i=list_i.count(i)-1  #nombre de user i piochés sur les périodes précédentes (exclue période t actuelle)
-            #On calcul les bornes de confiance pour les users
+            # On calcule les bornes de confiance pour les users
             CB_tild=np.zeros(n_user)
             CB_tild[i]=alpha2*np.sqrt((1+np.log(1+T_i))/(1+T_i)) #CB pour i,utile dans la boucle sur les autres users
             # On sélectionne les noeuds du clusters associé à i
@@ -139,8 +143,8 @@ class OLCB():
                         list_card=[ card_clust(z,n_user_sub,m_copy,j) for j in np.arange(1,m_copy+1) ]
                         list_card_V=[ len(c) for c in list(nx.connected_component_subgraphs(V_copy)) ]            
                         diff_card=abs( np.array(sorted(list_card))-np.array(sorted(list_card_V)) )
-                        if( np.array_equal(diff_card,np.zeros(m_copy)) | np.array_equal(diff_card,np.ones(m_copy) ) | np.array_equal(diff_card,2*np.ones(m_copy)) | np.array_equal(diff_card,3*np.ones(m_copy))
-                          | np.array_equal(diff_card,4*np.ones(m_copy)) ):
+                        if( np.array_equal(diff_card,np.zeros(m_copy)) | np.array_equal(diff_card,np.ones(m_copy) ) | np.array_equal(diff_card,2*np.ones(m_copy)) | np.array_equal(diff_card,3*np.ones(m_copy) ):
+                         # | np.array_equal(diff_card,4*np.ones(m_copy)) ):
                             V.remove_edge(i,l)
             
             m=len( list( nx.connected_component_subgraphs(V) ) )
