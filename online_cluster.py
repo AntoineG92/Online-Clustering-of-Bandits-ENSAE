@@ -143,8 +143,7 @@ class OLCB():
                         list_card=[ card_clust(z,n_user_sub,m_copy,j) for j in np.arange(1,m_copy+1) ]
                         list_card_V=[ len(c) for c in list(nx.connected_component_subgraphs(V_copy)) ]            
                         diff_card=abs( np.array(sorted(list_card))-np.array(sorted(list_card_V)) )
-                        if( np.array_equal(diff_card,np.zeros(m_copy)) | np.array_equal(diff_card,np.ones(m_copy) ) | np.array_equal(diff_card,2*np.ones(m_copy)) | np.array_equal(diff_card,3*np.ones(m_copy) ):
-                         # | np.array_equal(diff_card,4*np.ones(m_copy)) ):
+                        if( np.array_equal(diff_card,np.zeros(m_copy)) | np.array_equal(diff_card,np.ones(m_copy) ) | np.array_equal(diff_card,2*np.ones(m_copy)) | np.array_equal(diff_card,3*np.ones(m_copy) )):
                             V.remove_edge(i,l)
             
             m=len( list( nx.connected_component_subgraphs(V) ) )
