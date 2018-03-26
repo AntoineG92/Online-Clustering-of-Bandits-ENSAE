@@ -192,15 +192,18 @@ class OLCB():
             k_t=[v for v in range(c) if vect_k[v]==np.max(vect_k)][0]
             epsilon = npr.uniform(-sigma,sigma,size=1)
             a_t=np.dot(U[i,:],C[:,k_t]) + epsilon
+            random_payoff=np.dot(U[i,:],C[:,int(npr.uniform(0,c))]) + epsilon
             other_payoff= list([ np.dot(U[i,:],C[:,n]) for n in range(c) ])
             if t>0:
                 best_payoff = [np.dot(U[i,:],C[:,n]) for n in range(c) if np.dot(U[i,:],C[:,n])==max(other_payoff)][0]
                 regret_cum[t]=regret_cum[t-1]+a_t - best_payoff
+                regret_cum_random[t] = regret_cum_random[t-1] + random_payoff - best_payoff
             else:
                 best_payoff=[np.dot(U[i,:],C[:,n]) for n in range(c) if np.dot(U[i,:],C[:,n])==max(other_payoff)][0]
                 regret_cum[t]=a_t-best_payoff
+                regret_cum_random[t]=random_payoff - best_payoff
             list_payoff.append(a_t)
             # On update les poids
             d_MLin['M'+str(int(i))]=d_MLin['M'+str(int(i))]+np.dot(C[:,k_t],C[:,k_t].T)
             d_bLin['b'+str(int(i))]=d_bLin['b'+str(int(i))]+a_t*C[:,k_t]
-        return(list_payoff,regret_cum)
+        return(list_payoff,regret_cum,regret_cum_random)
