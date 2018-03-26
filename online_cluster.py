@@ -67,6 +67,7 @@ class OLCB():
         if method == "fixed design":
             for cont in range(int(n_user/(2*c))):
                 list_C.append(sphere_unif(D,c))
+        omega=np.zeros([n_user,D])
         for t in range(T):
             #choisir aléatoirement un user i
             i=int(npr.uniform(0,n_user))
@@ -74,7 +75,7 @@ class OLCB():
             #reçoit un vecteur contexte associé au user i
             C = list_C[ int( npr.uniform(0,len(list_C)) ) ] 
             #On genère omega
-            omega=np.zeros([n_user,D])
+            #omega=np.zeros([n_user,D])
             omega[i,:]=np.dot(np.linalg.inv(d_M['M'+str(int(i))]),d_b['b'+str(int(i))])
             #on récupère tous les indices qui appartiennent au même cluster que celui de i
             M_index = [ n for n in V if nx.has_path(V,n,i)]
@@ -119,35 +120,94 @@ class OLCB():
             # On sélectionne les noeuds du clusters associé à i
             nodes_i=[k for k in V[i]]
             list_CB[t]=CB_tild[i].copy()
-            for l in nodes_i: #CB pour les autres users voisins de i
-                T_i=list_i.count(l)-1
-                if list_i.count(l)==0:
-                    T_i=0
-                CB_tild[l]=alpha2*np.sqrt((1+np.log(1+T_i))/(1+T_i))
-                omega[l,:]=np.dot( np.linalg.inv(d_M['M'+str(l)]) , d_b['b'+str(l)] )
-                norm_diff_omega=euclidean(omega[l,:],omega[i,:])
-                list_CB[t]=list_CB[t]+CB_tild[l]
-                list_omega[t]=list_omega[t]+norm_diff_omega
-                #si la distance entre users i et l est grande, on brise le lien
-                if (norm_diff_omega > (CB_tild[l] + CB_tild[i]) ):
-                    V_test=V.copy()
-                    V_test.remove_edge(i,l)
-                    if( nx.has_path(V_test,i,l) ):
-                        V.remove_edge(i,l)
-                    else:
-                        # extraie le sous-graphe qui contient i
-                        V_copy=[h for h in list(nx.connected_component_subgraphs(V)) if h.has_node(i) ][0]
-                        n_user_sub=len(V_copy)
-                        V_copy.remove_edge(i,l) # ensuite on casse le lien qui divise ce sous-graphe en 2 clusters
-                        m_copy=len( list( nx.connected_component_subgraphs(V_copy) ) )
-                        list_card=[ card_clust(z,n_user_sub,m_copy,j) for j in np.arange(1,m_copy+1) ]
-                        list_card_V=[ len(c) for c in list(nx.connected_component_subgraphs(V_copy)) ]            
-                        diff_card=abs( np.array(sorted(list_card))-np.array(sorted(list_card_V)) )
-                        if( np.array_equal(diff_card,np.zeros(m_copy)) | np.array_equal(diff_card,np.ones(m_copy) ) | np.array_equal(diff_card,2*np.ones(m_copy)) | np.array_equal(diff_card,3*np.ones(m_copy) ):
-                         # | np.array_equal(diff_card,4*np.ones(m_copy)) ):
+            #si on a crée suffisamment de clusters, alors on arrête de chercher des nouveaux clusters
+            if( t <= 5000 ):  
+                for l in nodes_i: #CB pour les autres users voisins de i
+                    T_i=list_i.count(l)-1
+                    if list_i.count(l)==0:
+                        T_i=0
+                    CB_tild[l]=alpha2*np.sqrt((1+np.log(1+T_i))/(1+T_i))
+                    omega[l,:]=np.dot( np.linalg.inv(d_M['M'+str(l)]) , d_b['b'+str(l)] )
+                    norm_diff_omega=euclidean(omega[l,:],omega[i,:])
+                    list_CB[t]=list_CB[t]+CB_tild[l]
+                    list_omega[t]=list_omega[t]+norm_diff_omega
+                    #si la distance entre users i et l est grande, on brise le lien
+                    if (norm_diff_omega > (CB_tild[l] + CB_tild[i]) ):
+                        V_test=V.copy()
+                        V_test.remove_edge(i,l)
+                        if( nx.has_path(V_test,i,l) ):
                             V.remove_edge(i,l)
+                        else:
+                            # extraie le sous-graphe qui contient i
+                            V_copy=[h for h in list(nx.connected_component_subgraphs(V)) if h.has_node(i) ][0]
+                            n_user_sub=len(V_copy)
+                            V_copy.remove_edge(i,l) # ensuite on casse le lien qui divise ce sous-graphe en 2 clusters
+                            m_copy=len( list( nx.connected_component_subgraphs(V_copy) ) )
+                            list_card=[ card_clust(z,n_user_sub,m_copy,j) for j in np.arange(1,m_copy+1) ]
+                            list_card_V=[ len(c) for c in list(nx.connected_component_subgraphs(V_copy)) ]            
+                            diff_card=abs( np.array(sorted(list_card))-np.array(sorted(list_card_V)) )
+                            cluster_condition = [ np.array_equal(diff_card,k*np.ones(m_copy)) for k in range(1,2+int(n_user/20))]
+                            if( np.any(cluster_condition) ):
+                                V.remove_edge(i,l)
             
             m=len( list( nx.connected_component_subgraphs(V) ) )
             list_m.append(m)
 
         return(list_m,list_CB,list_omega,list_payoff,list_random_payoff,regret_cum,regret_cum_random,V)
+    
+    def LinUCB_IND(self,sigma,alpha,method):
+        sphere_unif=self.sphere_unif
+        D=self.D
+        T=self.T
+        n_user=self.n_user
+        list_C=self.list_C
+        c=self.c
+        regret_cum_random=np.zeros(T)
+        V=self.V.copy()
+        U=self.U.copy()
+        list_payoff=[]
+        regret_cum=np.zeros(T)
+        d_MLin=dict()
+        d_bLin=dict()
+        for i in range(n_user):
+            d_MLin['M%d' % i]=np.identity(D)
+            d_bLin['b%d' % i]=np.zeros(D)
+        list_payoff=[]
+        list_i=self.list_i
+        list_omega=np.zeros(T)
+        if method == "random design":
+            for cont in range(T):
+                list_C.append(sphere_unif(D,c))
+        if method == "fixed design":
+            for cont in range(int(n_user/(2*c))):
+                list_C.append(sphere_unif(D,c))
+        omega=np.zeros([n_user,D])
+        for t in range(T):
+            #choisir aléatoirement un user i
+            i=int(npr.uniform(0,n_user))
+            list_i.append(i)
+            omega[i,:]=np.dot(np.linalg.inv(d_MLin['M'+str(int(i))]),d_bLin['b'+str(int(i))])
+            #reçoit un vecteur contexte associé au user i
+            C = list_C[ int( npr.uniform(0,len(list_C)) ) ]
+            vect_k=np.zeros(c)
+            for k in range(c):
+                CB=alpha*np.sqrt(np.dot(np.dot(C[:,k].T,np.linalg.inv(d_MLin['M'+str(int(i))])),C[:,k])*np.log(t+1))
+                vect_k[k]=CB+np.dot(omega[i,:].T,C[:,k])
+            k_t=[v for v in range(c) if vect_k[v]==np.max(vect_k)][0]
+            epsilon = npr.uniform(-sigma,sigma,size=1)
+            a_t=np.dot(U[i,:],C[:,k_t]) + epsilon
+            random_payoff=np.dot(U[i,:],C[:,int(npr.uniform(0,c))]) + epsilon
+            other_payoff= list([ np.dot(U[i,:],C[:,n]) for n in range(c) ])
+            if t>0:
+                best_payoff = [np.dot(U[i,:],C[:,n]) for n in range(c) if np.dot(U[i,:],C[:,n])==max(other_payoff)][0]
+                regret_cum[t]=regret_cum[t-1]+a_t - best_payoff
+                regret_cum_random[t] = regret_cum_random[t-1] + random_payoff - best_payoff
+            else:
+                best_payoff=[np.dot(U[i,:],C[:,n]) for n in range(c) if np.dot(U[i,:],C[:,n])==max(other_payoff)][0]
+                regret_cum[t]=a_t-best_payoff
+                regret_cum_random[t]=random_payoff - best_payoff
+            list_payoff.append(a_t)
+            # On update les poids
+            d_MLin['M'+str(int(i))]=d_MLin['M'+str(int(i))]+np.dot(C[:,k_t],C[:,k_t].T)
+            d_bLin['b'+str(int(i))]=d_bLin['b'+str(int(i))]+a_t*C[:,k_t]
+        return(list_payoff,regret_cum,regret_cum_random)
