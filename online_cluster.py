@@ -67,6 +67,7 @@ class OLCB():
         if method == "fixed design":
             for cont in range(int(n_user/(2*c))):
                 list_C.append(sphere_unif(D,c))
+        omega=np.zeros([n_user,D])
         for t in range(T):
             #choisir aléatoirement un user i
             i=int(npr.uniform(0,n_user))
@@ -74,7 +75,7 @@ class OLCB():
             #reçoit un vecteur contexte associé au user i
             C = list_C[ int( npr.uniform(0,len(list_C)) ) ] 
             #On genère omega
-            omega=np.zeros([n_user,D])
+            #omega=np.zeros([n_user,D])
             omega[i,:]=np.dot(np.linalg.inv(d_M['M'+str(int(i))]),d_b['b'+str(int(i))])
             #on récupère tous les indices qui appartiennent au même cluster que celui de i
             M_index = [ n for n in V if nx.has_path(V,n,i)]
@@ -150,3 +151,56 @@ class OLCB():
             list_m.append(m)
 
         return(list_m,list_CB,list_omega,list_payoff,list_random_payoff,regret_cum,regret_cum_random,V)
+    
+    def LinUCB_IND(self,sigma,alpha,method):
+        sphere_unif=self.sphere_unif
+        D=self.D
+        T=self.T
+        n_user=self.n_user
+        list_C=self.list_C
+        c=self.c
+        V=self.V.copy()
+        U=self.U.copy()
+        list_payoff=[]
+        regret_cum=np.zeros(T)
+        d_MLin=dict()
+        d_bLin=dict()
+        for i in range(n_user):
+            d_MLin['M%d' % i]=np.identity(D)
+            d_bLin['b%d' % i]=np.zeros(D)
+        list_payoff=[]
+        list_i=self.list_i
+        list_omega=np.zeros(T)
+        if method == "random design":
+            for cont in range(T):
+                list_C.append(sphere_unif(D,c))
+        if method == "fixed design":
+            for cont in range(int(n_user/(2*c))):
+                list_C.append(sphere_unif(D,c))
+        omega=np.zeros([n_user,D])
+        for t in range(T):
+            #choisir aléatoirement un user i
+            i=int(npr.uniform(0,n_user))
+            list_i.append(i)
+            omega[i,:]=np.dot(np.linalg.inv(d_MLin['M'+str(int(i))]),d_bLin['b'+str(int(i))])
+            #reçoit un vecteur contexte associé au user i
+            C = list_C[ int( npr.uniform(0,len(list_C)) ) ]
+            vect_k=np.zeros(c)
+            for k in range(c):
+                CB=alpha*np.sqrt(np.dot(np.dot(C[:,k].T,np.linalg.inv(d_MLin['M'+str(int(i))])),C[:,k])*np.log(t+1))
+                vect_k[k]=CB+np.dot(omega[i,:].T,C[:,k])
+            k_t=[v for v in range(c) if vect_k[v]==np.max(vect_k)][0]
+            epsilon = npr.uniform(-sigma,sigma,size=1)
+            a_t=np.dot(U[i,:],C[:,k_t]) + epsilon
+            other_payoff= list([ np.dot(U[i,:],C[:,n]) for n in range(c) ])
+            if t>0:
+                best_payoff = [np.dot(U[i,:],C[:,n]) for n in range(c) if np.dot(U[i,:],C[:,n])==max(other_payoff)][0]
+                regret_cum[t]=regret_cum[t-1]+a_t - best_payoff
+            else:
+                best_payoff=[np.dot(U[i,:],C[:,n]) for n in range(c) if np.dot(U[i,:],C[:,n])==max(other_payoff)][0]
+                regret_cum[t]=a_t-best_payoff
+            list_payoff.append(a_t)
+            # On update les poids
+            d_MLin['M'+str(int(i))]=d_MLin['M'+str(int(i))]+np.dot(C[:,k_t],C[:,k_t].T)
+            d_bLin['b'+str(int(i))]=d_bLin['b'+str(int(i))]+a_t*C[:,k_t]
+        return(list_payoff,regret_cum)
