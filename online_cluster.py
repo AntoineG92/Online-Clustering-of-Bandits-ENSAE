@@ -159,6 +159,7 @@ class OLCB():
         n_user=self.n_user
         list_C=self.list_C
         c=self.c
+        regret_cum_random=np.zeros(T)
         V=self.V.copy()
         U=self.U.copy()
         list_payoff=[]
