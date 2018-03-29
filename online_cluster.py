@@ -120,7 +120,6 @@ class OLCB():
             # On sélectionne les noeuds du clusters associé à i
             nodes_i=[k for k in V[i]]
             list_CB[t]=CB_tild[i].copy()
-<<<<<<< HEAD
             #si on a crée suffisamment de clusters, alors on arrête de chercher des nouveaux clusters
             if( t <= 5000 ):  
                 for l in nodes_i: #CB pour les autres users voisins de i
@@ -137,33 +136,6 @@ class OLCB():
                         V_test=V.copy()
                         V_test.remove_edge(i,l)
                         if( nx.has_path(V_test,i,l) ):
-=======
-            for l in nodes_i: #CB pour les autres users voisins de i
-                T_i=list_i.count(l)-1
-                if list_i.count(l)==0:
-                    T_i=0
-                CB_tild[l]=alpha2*np.sqrt((1+np.log(1+T_i))/(1+T_i))
-                omega[l,:]=np.dot( np.linalg.inv(d_M['M'+str(l)]) , d_b['b'+str(l)] )
-                norm_diff_omega=euclidean(omega[l,:],omega[i,:])
-                list_CB[t]=list_CB[t]+CB_tild[l]
-                list_omega[t]=list_omega[t]+norm_diff_omega
-                #si la distance entre users i et l est grande, on brise le lien
-                if (norm_diff_omega > (CB_tild[l] + CB_tild[i]) ):
-                    V_test=V.copy()
-                    V_test.remove_edge(i,l)
-                    if( nx.has_path(V_test,i,l) ):
-                        V.remove_edge(i,l)
-                    else:
-                        # extraie le sous-graphe qui contient i
-                        V_copy=[h for h in list(nx.connected_component_subgraphs(V)) if h.has_node(i) ][0]
-                        n_user_sub=len(V_copy)
-                        V_copy.remove_edge(i,l) # ensuite on casse le lien qui divise ce sous-graphe en 2 clusters
-                        m_copy=len( list( nx.connected_component_subgraphs(V_copy) ) )
-                        list_card=[ card_clust(z,n_user_sub,m_copy,j) for j in np.arange(1,m_copy+1) ]
-                        list_card_V=[ len(c) for c in list(nx.connected_component_subgraphs(V_copy)) ]            
-                        diff_card=abs( np.array(sorted(list_card))-np.array(sorted(list_card_V)) )
-                        if( np.array_equal(diff_card,np.zeros(m_copy)) | np.array_equal(diff_card,np.ones(m_copy) ) | np.array_equal(diff_card,2*np.ones(m_copy)) | np.array_equal(diff_card,3*np.ones(m_copy) )):
->>>>>>> 069ead6bee8569dc59824b4910df33642fad79f8
                             V.remove_edge(i,l)
                         else:
                             # extraie le sous-graphe qui contient i
