@@ -31,11 +31,14 @@ class OLCB():
     def Initial_User(self,n_cluster,n_user,D):
         centres=self.sphere_unif(n_cluster,D)
         U=[]
+        j=0
         for k in range(n_user):
-            j=int(npr.uniform(0,n_cluster-1))
-            V=np.random.normal(0,0.01,D)
+            V=np.random.normal(0,0.000001,D)
             U.append(centres[j]+V)
             U[k] /= np.linalg.norm(U,axis=0)
+            j=j+1
+            if j>=n_cluster:
+                j=0
         return(np.array(U),centres)
 
     def card_clust(self,z,n,m,j):
