@@ -6,41 +6,40 @@ from scipy.spatial.distance import euclidean
 import networkx as nx
 
 class OLCB():
-    def __init__(self,T,n_user,n_cluster,D,c,graph_density):
+    def __init__(self,T,n_user,D,c,graph_density):
         self.T=T
-        self.n_cluster=n_cluster
         self.n_user=n_user
         self.D=D
         self.c=c
         self.V= nx.dense_gnm_random_graph(n_user,graph_density)
         self.m=len( list( nx.connected_component_subgraphs(self.V) ) )
-        self.U=self.Initial_User(n_cluster,n_user,D)[0]
-        self.center=self.Initial_User(n_cluster,n_user,D)[1]
-        #self.U=self.sphere_unif(n_user,D)
+        self.U=self.init_user()
         self.list_i=[]
         self.list_m=[]
-        self.list_C=[]
-
-
+        self.list_C=[] 
+    
+    def find_nearest(self,array,value):
+        idx = (np.abs(array-value)).argmin()
+        return array[idx]
+    
+    def init_user(self):
+        #crée des groupes de users centrés entre eux sur des parties différentes de la sphère
+        U = np.zeros([self.n_user,self.D])
+        step=0.5
+        interval = np.arange(step/2,1,step)
+        for k in range(self.n_user): 
+            U[k,:]=npr.normal(self.find_nearest(interval,k/self.n_user),0.05,size=self.D)
+        U_norm=np.linalg.norm(U,axis=1)
+        U_norm=np.repeat(U_norm,self.D).reshape([self.n_user,self.D])
+        U=np.divide(U,U_norm)
+        return U
+        
     #sphere unitaire pour générer les matrices de contexte C à chaque période
     def sphere_unif(self,ndim,npoints):
         vec = np.random.randn(ndim, npoints)
         vec /= np.linalg.norm(vec, axis=0)
         return (vec)
     #Fonction pouvant servir à contrôler la taille des clusters
-    def Initial_User(self,n_cluster,n_user,D):
-        centres=self.sphere_unif(n_cluster,D)
-        U=[]
-        j=0
-        for k in range(n_user):
-            V=np.random.normal(0,0.000001,D)
-            U.append(centres[j]+V)
-            U[k] /= np.linalg.norm(U,axis=0)
-            j=j+1
-            if j>=n_cluster:
-                j=0
-        return(np.array(U),centres)
-
     def card_clust(self,z,n,m,j):
         denom=0
         for i in np.arange(1,m+1):
